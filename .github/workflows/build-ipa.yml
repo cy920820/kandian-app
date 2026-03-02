@@ -151,7 +151,7 @@ jobs:
             exit 1
           fi
 
-          (cd artifacts/android && for f in *.apk *.aab; do [ -f "$f" ] && sha256sum "$f"; done) > artifacts/android/SHA256SUMS.txt
+          (cd artifacts/android && for f in *.apk *.aab; do [ -f "$f" ] && sha256sum "$f"; done) > artifacts/android/Kandian-Android-SHA256SUMS.txt
 
       - name: Upload Android artifacts
         uses: actions/upload-artifact@v4
@@ -208,7 +208,7 @@ jobs:
             exit 1
           fi
 
-          (cd artifacts/desktop && for f in *.dmg; do [ -f "$f" ] && shasum -a 256 "$f"; done) > artifacts/desktop/SHA256SUMS.txt
+          (cd artifacts/desktop && for f in *.dmg; do [ -f "$f" ] && shasum -a 256 "$f"; done) > artifacts/desktop/Kandian-macOS-SHA256SUMS.txt
 
       - name: Upload desktop artifacts
         if: always()
@@ -255,9 +255,22 @@ jobs:
             echo "### 校验信息"
             echo ""
             echo '```text'
-            find release-assets -type f \( -name "*.sha256" -o -name "SHA256SUMS.txt" \) -print -exec cat {} \;
+            find release-assets -type f \( -name "*.sha256" -o -name "*SHA256SUMS.txt" \) -print -exec cat {} \;
             echo '```'
           } > RELEASE_NOTES.md
+
+      - name: Stage release files
+        run: |
+          mkdir -p release-upload
+          while IFS= read -r FILE; do
+            BASENAME="$(basename "$FILE")"
+            ARTIFACT_DIR="$(basename "$(dirname "$FILE")")"
+            TARGET="release-upload/${BASENAME}"
+            if [ -e "$TARGET" ]; then
+              TARGET="release-upload/${ARTIFACT_DIR}-${BASENAME}"
+            fi
+            cp "$FILE" "$TARGET"
+          done < <(find release-assets -type f)
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -266,4 +279,4 @@ jobs:
           name: 看点 ${{ steps.notes.outputs.tag }}
           body_path: RELEASE_NOTES.md
           files: |
-            release-assets/**/*
+            release-upload/*
