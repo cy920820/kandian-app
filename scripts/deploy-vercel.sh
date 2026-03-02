@@ -90,11 +90,11 @@ ensure_vercel_auth() {
 }
 
 deploy_prod() {
-  run_step "部署到 Vercel 生产环境" run_vercel deploy --prod --yes
+  run_step "部署到 Vercel 生产环境" run_vercel deploy --prod --yes --archive=tgz
 }
 
 deploy_preview() {
-  run_step "部署到 Vercel 预览环境" run_vercel deploy --yes
+  run_step "部署到 Vercel 预览环境" run_vercel deploy --yes --archive=tgz
 }
 
 if [[ "${MODE}" == "-h" || "${MODE}" == "--help" ]]; then

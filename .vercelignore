@@ -1,0 +1,22 @@
+# dependencies / build outputs
+node_modules
+dist
+
+# local env / vcs
+.git
+.DS_Store
+*.log
+
+# tauri/native files not needed for Vercel web deploy
+src-tauri
+android
+ios
+*.ipa
+*.apk
+*.aab
+
+# editor / cache
+.idea
+.vscode
+.cache
+.turbo

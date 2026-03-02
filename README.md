@@ -132,7 +132,17 @@ npm run deploy:vercel:preview
 ```
 
 脚本位置：`scripts/deploy-vercel.sh`  
-支持 `VERCEL_TOKEN`（CI 无交互部署），也支持通过 `VERCEL_ORG_ID + VERCEL_PROJECT_ID` 直接写入 `.vercel/project.json`。
+支持 `VERCEL_TOKEN`（CI 无交互部署），也支持通过 `VERCEL_ORG_ID + VERCEL_PROJECT_ID` 直接写入 `.vercel/project.json`。  
+脚本默认使用 `vercel deploy --archive=tgz`，避免大仓库上传文件数超限。
+
+### GitHub Actions 自动构建发布
+
+推送 `main` 会触发 `.github/workflows/build-ipa.yml`：
+
+- `build-ios`：构建 unsigned IPA（供后续自签）
+- `build-android`：构建 Android APK/AAB
+- `build-desktop`：构建 macOS DMG
+- `release`：自动创建 GitHub Release，上传产物并附带构建日志与 SHA256 校验信息
 
 ## 交互快捷键（桌面）
 
