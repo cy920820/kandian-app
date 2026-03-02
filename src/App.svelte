@@ -5,9 +5,9 @@
   import HomePage from "@/components/HomePage.svelte";
   import FavoritesPanel from "@/components/FavoritesPanel.svelte";
   import LegacyTabBar from "@/components/LegacyTabBar.svelte";
-  import { initGlimpseApp } from "@/features/glimpse/bootstrap.js";
+  import { initKandianApp } from "@/features/kandian/bootstrap.js";
 
-  onMount(() => initGlimpseApp());
+  onMount(() => initKandianApp());
 </script>
 
 <Loader />

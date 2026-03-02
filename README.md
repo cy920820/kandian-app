@@ -2,8 +2,6 @@
 
 沉浸式视频/图片流应用，支持 Web 与 Tauri 多端（macOS、iOS、Android）。
 
-> 当前产品名为「看点」。部分内部代码路径与包名仍保留 `glimpse` 历史命名，不影响功能。
-
 ## 当前能力
 
 - 视频流浏览：上下滑切换、自动播放、键盘/滚轮操作、切换过渡动效
@@ -137,7 +135,7 @@ npm run deploy:vercel:preview
 
 ### GitHub Actions 自动构建发布
 
-推送 `main` 会触发 `.github/workflows/build-ipa.yml`：
+推送 `main` 会触发 `.github/workflows/build-release.yml`：
 
 - `build-ios`：构建 unsigned IPA（供后续自签）
 - `build-android`：构建 Android APK/AAB
@@ -156,8 +154,8 @@ npm run deploy:vercel:preview
 
 ## 配置入口
 
-- 前端核心逻辑：`src/features/glimpse/bootstrap.js`
-- 业务参数（预加载/手势阈值/重试等）：`src/features/glimpse/constants.js`
+- 前端核心逻辑：`src/features/kandian/bootstrap.js`
+- 业务参数（预加载/手势阈值/重试等）：`src/features/kandian/constants.js`
 - 全局样式：`src/app.css`
 - Tauri 窗口与打包：`src-tauri/tauri.conf.json`
 - Capacitor 名称配置：`capacitor.config.json`
@@ -168,7 +166,7 @@ npm run deploy:vercel:preview
 .
 ├── src/
 │   ├── components/               # 页面结构组件
-│   ├── features/glimpse/         # 主业务（bootstrap + services + constants）
+│   ├── features/kandian/         # 主业务（bootstrap + services + constants）
 │   ├── app.css                   # 全局样式与动效
 │   └── App.svelte
 ├── public/

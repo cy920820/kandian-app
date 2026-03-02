@@ -79,9 +79,14 @@ jobs:
             echo "No .app found under release-iphoneos"
             exit 1
           fi
-          cp -R "$APP_PATH" artifacts/ios/Payload/
-          (cd artifacts/ios && zip -qry Kandian-iOS-unsigned.ipa Payload)
+          ditto "$APP_PATH" "artifacts/ios/Payload/$(basename "$APP_PATH")"
+          (cd artifacts/ios && /usr/bin/zip -qry Kandian-iOS-unsigned.ipa Payload)
           rm -rf artifacts/ios/Payload
+          IPA_SIZE="$(stat -f%z artifacts/ios/Kandian-iOS-unsigned.ipa)"
+          if [ "$IPA_SIZE" -lt 1048576 ]; then
+            echo "IPA seems invalid (too small): ${IPA_SIZE} bytes"
+            exit 1
+          fi
           shasum -a 256 artifacts/ios/Kandian-iOS-unsigned.ipa > artifacts/ios/Kandian-iOS-unsigned.ipa.sha256
 
       - name: Upload iOS artifacts
@@ -243,34 +248,78 @@ jobs:
             echo ""
             echo "### 构建产物"
             echo ""
-            echo "- iOS: unsigned IPA（可用于后续自签）"
-            echo "- Android: APK/AAB"
-            echo "- macOS: DMG"
+            echo "- Kandian-iOS-unsigned.ipa（iOS unsigned，后续可自签）"
+            echo "- Kandian-Android.apk"
+            echo "- Kandian-Android.aab"
+            echo "- Kandian-macOS.dmg"
             echo ""
             echo "### 构建日志"
             echo ""
             echo "- 完整 Actions 运行日志: ${RUN_URL}"
-            echo "- 附件内包含 `build-ios.log` / `build-android.log` / `build-desktop.log`"
-            echo ""
-            echo "### 校验信息"
-            echo ""
-            echo '```text'
-            find release-assets -type f \( -name "*.sha256" -o -name "*SHA256SUMS.txt" \) -print -exec cat {} \;
-            echo '```'
+            echo "- 本次 Release 只上传安装包，构建日志请在 Actions 页面查看"
           } > RELEASE_NOTES.md
 
       - name: Stage release files
         run: |
           mkdir -p release-upload
-          while IFS= read -r FILE; do
-            BASENAME="$(basename "$FILE")"
-            ARTIFACT_DIR="$(basename "$(dirname "$FILE")")"
-            TARGET="release-upload/${BASENAME}"
-            if [ -e "$TARGET" ]; then
-              TARGET="release-upload/${ARTIFACT_DIR}-${BASENAME}"
-            fi
-            cp "$FILE" "$TARGET"
-          done < <(find release-assets -type f)
+          IOS_IPA="$(find release-assets -type f -name "*.ipa" | sort | head -n1)"
+          DMG_FILE="$(find release-assets -type f -name "*.dmg" | sort | head -n1)"
+
+          APK_FILE="$(
+            find release-assets -type f -name "*.apk" | sort \
+              | awk '/universal.*release/ {print; found=1; exit} END {if (!found) print ""}'
+          )"
+          if [ -z "$APK_FILE" ]; then
+            APK_FILE="$(find release-assets -type f -name "*.apk" | sort | head -n1)"
+          fi
+
+          AAB_FILE="$(
+            find release-assets -type f -name "*.aab" | sort \
+              | awk '/release/ {print; found=1; exit} END {if (!found) print ""}'
+          )"
+          if [ -z "$AAB_FILE" ]; then
+            AAB_FILE="$(find release-assets -type f -name "*.aab" | sort | head -n1)"
+          fi
+
+          [ -n "${IOS_IPA:-}" ] && cp "$IOS_IPA" release-upload/Kandian-iOS-unsigned.ipa
+          [ -n "${APK_FILE:-}" ] && cp "$APK_FILE" release-upload/Kandian-Android.apk
+          [ -n "${AAB_FILE:-}" ] && cp "$AAB_FILE" release-upload/Kandian-Android.aab
+          [ -n "${DMG_FILE:-}" ] && cp "$DMG_FILE" release-upload/Kandian-macOS.dmg
+
+          COUNT="$(find release-upload -type f | wc -l | tr -d ' ')"
+          if [ "$COUNT" -eq 0 ]; then
+            echo "No package files staged for release."
+            find release-assets -type f | sed -n '1,200p'
+            exit 1
+          fi
+
+          echo "Staged release files:"
+          find release-upload -type f -maxdepth 1 -print | sed -n '1,200p'
+
+      - name: Clean old assets for same tag
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const tag = '${{ steps.notes.outputs.tag }}';
+            const { owner, repo } = context.repo;
+            try {
+              const release = await github.rest.repos.getReleaseByTag({ owner, repo, tag });
+              const assets = release.data.assets || [];
+              core.info(`Found existing release ${tag}, deleting ${assets.length} assets...`);
+              for (const asset of assets) {
+                await github.rest.repos.deleteReleaseAsset({
+                  owner,
+                  repo,
+                  asset_id: asset.id
+                });
+              }
+            } catch (error) {
+              if (error.status === 404) {
+                core.info(`No existing release for tag ${tag}, skip cleanup.`);
+              } else {
+                throw error;
+              }
+            }
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2

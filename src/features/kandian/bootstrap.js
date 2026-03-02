@@ -2,7 +2,7 @@ import { APP_CONFIG, API_ENDPOINTS } from "./constants.js";
 import { fetchVideoUrl, fetchImageUrl } from "./services/api.js";
 import { createLikesService } from "./services/likes.js";
 
-export function initGlimpseApp() {
+export function initKandianApp() {
 
   /* ── DOM refs ── */
   const $loader    = document.getElementById('loader');
