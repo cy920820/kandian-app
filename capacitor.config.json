@@ -1,0 +1,10 @@
+{
+  "appId": "com.glimpse.app",
+  "appName": "看点",
+  "webDir": "www",
+  "backgroundColor": "#050505",
+  "ios": {
+    "backgroundColor": "#050505",
+    "preferredContentMode": "mobile"
+  }
+}

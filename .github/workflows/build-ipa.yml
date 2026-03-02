@@ -1,0 +1,235 @@
+name: Build & Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  # ══════════════════════════════════════
+  #  iOS IPA (macOS)
+  # ══════════════════════════════════════
+  build-ios:
+    runs-on: macos-15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Prepare web assets
+        run: |
+          mkdir -p www
+          cp index.html manifest.json sw.js www/
+          [ -f icon.png ] && cp icon.png www/
+          [ -f server.js ] && cp server.js www/
+
+      - name: Add iOS platform
+        run: npx cap add ios
+
+      - name: Sync iOS project
+        run: npx cap sync ios
+
+      - name: Generate iOS App Icons
+        run: |
+          ICON_SRC=icon.png
+          ICONSET=ios/App/App/Assets.xcassets/AppIcon.appiconset
+
+          # Strip alpha: JPEG roundtrip (JPEG has no alpha channel)
+          sips -s format jpeg -s formatOptions 100 "$ICON_SRC" --out /tmp/icon_noalpha.jpg
+          sips -s format png /tmp/icon_noalpha.jpg --out icon_flat.png
+          ICON_SRC=icon_flat.png
+
+          rm -rf "$ICONSET"
+          mkdir -p "$ICONSET"
+
+          # macOS ships bash 3.2 — no associative arrays, so just list them out
+          sips -z 40 40 "$ICON_SRC" --out "$ICONSET/AppIcon-20x20@2x.png"
+          sips -z 60 60 "$ICON_SRC" --out "$ICONSET/AppIcon-20x20@3x.png"
+          sips -z 58 58 "$ICON_SRC" --out "$ICONSET/AppIcon-29x29@2x.png"
+          sips -z 87 87 "$ICON_SRC" --out "$ICONSET/AppIcon-29x29@3x.png"
+          sips -z 80 80 "$ICON_SRC" --out "$ICONSET/AppIcon-40x40@2x.png"
+          sips -z 120 120 "$ICON_SRC" --out "$ICONSET/AppIcon-40x40@3x.png"
+          sips -z 120 120 "$ICON_SRC" --out "$ICONSET/AppIcon-60x60@2x.png"
+          sips -z 180 180 "$ICON_SRC" --out "$ICONSET/AppIcon-60x60@3x.png"
+          sips -z 152 152 "$ICON_SRC" --out "$ICONSET/AppIcon-76x76@2x.png"
+          sips -z 167 167 "$ICON_SRC" --out "$ICONSET/AppIcon-83.5x83.5@2x.png"
+          sips -z 1024 1024 "$ICON_SRC" --out "$ICONSET/AppIcon-1024.png"
+
+          COUNT=$(ls "$ICONSET"/*.png 2>/dev/null | wc -l | tr -d ' ')
+          echo "==> Generated $COUNT icon files"
+          if [ "$COUNT" -lt 11 ]; then
+            echo "ERROR: Expected 11 icons but only got $COUNT!"
+            exit 1
+          fi
+
+          cat > "$ICONSET/Contents.json" << 'JSONEOF'
+          {
+            "images": [
+              { "size": "20x20", "idiom": "iphone", "filename": "AppIcon-20x20@2x.png", "scale": "2x" },
+              { "size": "20x20", "idiom": "iphone", "filename": "AppIcon-20x20@3x.png", "scale": "3x" },
+              { "size": "29x29", "idiom": "iphone", "filename": "AppIcon-29x29@2x.png", "scale": "2x" },
+              { "size": "29x29", "idiom": "iphone", "filename": "AppIcon-29x29@3x.png", "scale": "3x" },
+              { "size": "40x40", "idiom": "iphone", "filename": "AppIcon-40x40@2x.png", "scale": "2x" },
+              { "size": "40x40", "idiom": "iphone", "filename": "AppIcon-40x40@3x.png", "scale": "3x" },
+              { "size": "60x60", "idiom": "iphone", "filename": "AppIcon-60x60@2x.png", "scale": "2x" },
+              { "size": "60x60", "idiom": "iphone", "filename": "AppIcon-60x60@3x.png", "scale": "3x" },
+              { "size": "76x76", "idiom": "ipad", "filename": "AppIcon-76x76@2x.png", "scale": "2x" },
+              { "size": "83.5x83.5", "idiom": "ipad", "filename": "AppIcon-83.5x83.5@2x.png", "scale": "2x" },
+              { "size": "1024x1024", "idiom": "ios-marketing", "filename": "AppIcon-1024.png", "scale": "1x" }
+            ],
+            "info": { "version": 1, "author": "xcode" }
+          }
+          JSONEOF
+
+      - name: Patch iOS Info.plist
+        run: |
+          PLIST=ios/App/App/Info.plist
+          /usr/libexec/PlistBuddy -c "Set :UIStatusBarStyle UIStatusBarStyleLightContent" "$PLIST" 2>/dev/null \
+            || /usr/libexec/PlistBuddy -c "Add :UIStatusBarStyle string UIStatusBarStyleLightContent" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Set :UIViewControllerBasedStatusBarAppearance false" "$PLIST" 2>/dev/null \
+            || /usr/libexec/PlistBuddy -c "Add :UIViewControllerBasedStatusBarAppearance bool false" "$PLIST"
+
+      - name: Build unsigned IPA
+        run: |
+          cd ios/App
+          xcodebuild build \
+            -workspace App.xcworkspace \
+            -scheme App \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath build \
+            ONLY_ACTIVE_ARCH=NO \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            ASSETCATALOG_COMPILER_APPICON_NAME=AppIcon
+
+      - name: Package IPA
+        run: |
+          cd ios/App/build/Build/Products/Release-iphoneos
+          mkdir Payload
+          cp -r App.app Payload/
+          zip -r Glimpse.ipa Payload
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-ipa
+          path: ios/App/build/Build/Products/Release-iphoneos/Glimpse.ipa
+
+  # ══════════════════════════════════════
+  #  Android APK (Ubuntu)
+  # ══════════════════════════════════════
+  build-android:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Prepare web assets
+        run: |
+          mkdir -p www
+          cp index.html manifest.json sw.js www/
+          [ -f icon.png ] && cp icon.png www/
+          [ -f server.js ] && cp server.js www/
+
+      - name: Add Android platform
+        run: npx cap add android
+
+      - name: Sync Android project
+        run: npx cap sync android
+
+      - name: Install ImageMagick
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq imagemagick
+
+      - name: Generate Android App Icons
+        run: |
+          ICON=icon.png
+          RES=android/app/src/main/res
+
+          for pair in "mipmap-mdpi 48" "mipmap-hdpi 72" "mipmap-xhdpi 96" "mipmap-xxhdpi 144" "mipmap-xxxhdpi 192"; do
+            dir=$(echo "$pair" | cut -d' ' -f1)
+            size=$(echo "$pair" | cut -d' ' -f2)
+            mkdir -p "$RES/$dir"
+            convert "$ICON" -resize "${size}x${size}!" "$RES/$dir/ic_launcher.png"
+            cp "$RES/$dir/ic_launcher.png" "$RES/$dir/ic_launcher_round.png"
+          done
+
+          for pair in "mipmap-mdpi 108" "mipmap-hdpi 162" "mipmap-xhdpi 216" "mipmap-xxhdpi 324" "mipmap-xxxhdpi 432"; do
+            dir=$(echo "$pair" | cut -d' ' -f1)
+            size=$(echo "$pair" | cut -d' ' -f2)
+            convert "$ICON" -resize "${size}x${size}!" "$RES/$dir/ic_launcher_foreground.png"
+          done
+
+          echo "==> Android icons generated"
+
+      - name: Build debug APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Rename APK
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk Glimpse.apk
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: Glimpse.apk
+
+  # ══════════════════════════════════════
+  #  Create GitHub Release with tag
+  # ══════════════════════════════════════
+  release:
+    needs: [build-ios, build-android]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download iOS artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ios-ipa
+
+      - name: Download Android artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: android-apk
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v2.0.${{ github.run_number }}
+          name: Glimpse v2.0.${{ github.run_number }}
+          body: |
+            ## 📦 下载安装
+
+            | 平台 | 文件 | 安装方式 |
+            |------|------|---------|
+            | iOS | `Glimpse.ipa` | AltStore / Sideloadly |
+            | Android | `Glimpse.apk` | 直接安装 |
+          files: |
+            Glimpse.ipa
+            Glimpse.apk

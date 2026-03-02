@@ -1,0 +1,36 @@
+{
+  "name": "glimpse",
+  "version": "2.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "start": "node server.js",
+    "build:web": "vite build",
+    "preview": "vite preview --host 127.0.0.1 --port 4173 --strictPort",
+    "check": "svelte-check --fail-on-warnings",
+    "clean:tauri-ports": "for p in 1420 1421; do lsof -tiTCP:$p -sTCP:LISTEN | xargs kill 2>/dev/null || true; done",
+    "pretauri:dev": "npm run clean:tauri-ports",
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build",
+    "tauri:ios:init": "tauri ios init",
+    "tauri:ios:dev": "tauri ios dev",
+    "tauri:ios:build": "tauri ios build",
+    "tauri:android:init": "tauri android init",
+    "tauri:android:dev": "tauri android dev",
+    "tauri:android:build": "tauri android build",
+    "build:app": "bash scripts/build-app.sh",
+    "deploy:vercel": "bash scripts/deploy-vercel.sh prod",
+    "deploy:vercel:preview": "bash scripts/deploy-vercel.sh preview"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^6.2.4",
+    "@tauri-apps/cli": "^2.10.0",
+    "autoprefixer": "^10.4.27",
+    "postcss": "^8.5.6",
+    "svelte": "^5.53.5",
+    "svelte-check": "^4.4.3",
+    "tailwindcss": "^3.4.19",
+    "vite": "^7.3.1"
+  }
+}

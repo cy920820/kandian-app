@@ -1,0 +1,27 @@
+{
+  "name": "看点",
+  "short_name": "看点",
+  "description": "沉浸式短视频浏览体验",
+  "start_url": "/index.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#050505",
+  "theme_color": "#050505",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='100' fill='%23050505'/><circle cx='176' cy='256' r='32' fill='%23ffffff' fill-opacity='.8'/><circle cx='256' cy='256' r='32' fill='%23ffffff'/><circle cx='336' cy='256' r='32' fill='%23ffffff' fill-opacity='.8'/></svg>",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='100' fill='%23050505'/><circle cx='176' cy='256' r='32' fill='%23ffffff' fill-opacity='.8'/><circle cx='256' cy='256' r='32' fill='%23ffffff'/><circle cx='336' cy='256' r='32' fill='%23ffffff' fill-opacity='.8'/></svg>",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "categories": ["entertainment"],
+  "lang": "zh-CN",
+  "dir": "ltr"
+}
