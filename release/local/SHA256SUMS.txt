@@ -1,0 +1,4 @@
+2a697666c73091b0a962798dafc02fd2a6980aca90726c3a89fa1aa8b47b2959  Kandian-Android.aab
+dcd0ea3d6940e24a9a3543537a2cc42b2938cdbffde17e8c28c808be54e445c9  Kandian-Android.apk
+a67d4d09bdc8d2f6eaa1a3ccd6706911187c8206d1c26b25babd3f098f769fd7  Kandian-iOS-unsigned.ipa
+51e7f63e0806ff30423a20979b45f8c4385d706888bda690dbdc9f91b24c58df  Kandian-macOS.dmg

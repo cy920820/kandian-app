@@ -20,6 +20,7 @@
     "tauri:android:dev": "tauri android dev",
     "tauri:android:build": "tauri android build",
     "build:app": "bash scripts/build-app.sh",
+    "build:release:local": "bash scripts/build-release-local.sh",
     "deploy:vercel": "bash scripts/deploy-vercel.sh prod",
     "deploy:vercel:preview": "bash scripts/deploy-vercel.sh preview"
   },

@@ -119,6 +119,19 @@ bash scripts/build-app.sh teamid
 
 `ios-sim` 用于无签名模拟器构建，脚本会使用占位 Team（`SIMULATR00`）通过 Tauri 前置检查；真机包仍必须设置真实 Team ID。
 
+### 本地一键发布包
+
+```bash
+npm run build:release:local
+```
+
+默认会依次构建 `desktop + ios + android`，并在 `release/local` 输出统一命名包：
+
+- `Kandian-macOS.dmg`
+- `Kandian-iOS-unsigned.ipa`
+- `Kandian-Android.apk`
+- `Kandian-Android.aab`（若存在）
+
 ### 一键部署 Vercel
 
 ```bash
