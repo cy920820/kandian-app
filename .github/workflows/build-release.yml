@@ -61,16 +61,23 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p artifacts/ios
-          xcodebuild build \
+          if ! xcodebuild build \
             -workspace src-tauri/gen/apple/app.xcodeproj/project.xcworkspace \
             -scheme app_iOS \
             -configuration release \
             -sdk iphoneos \
+            -destination "generic/platform=iOS" \
             -derivedDataPath src-tauri/gen/apple/build/ci-derived \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
-            2>&1 | tee artifacts/ios/build-ios.log
+            2>&1 | tee artifacts/ios/build-ios.log; then
+              echo "xcodebuild failed. Key diagnostics:"
+              grep -E "error:|fatal error:|BUILD FAILED|CodeSign|Provisioning|No signing certificate|requires a development team" artifacts/ios/build-ios.log | tail -n 80 || true
+              echo "---- Last 200 lines of build-ios.log ----"
+              tail -n 200 artifacts/ios/build-ios.log || true
+              exit 1
+          fi
 
       - name: Package IPA
         run: |
@@ -128,6 +135,7 @@ jobs:
 
   build-android:
     name: build-android
+    needs: [build-desktop]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -198,7 +206,7 @@ jobs:
 
   build-desktop:
     name: build-desktop
-    needs: [build-ios, build-android]
+    needs: [build-ios]
     runs-on: macos-15
     steps:
       - name: Checkout
