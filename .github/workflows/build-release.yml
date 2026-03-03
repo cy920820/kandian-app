@@ -59,6 +59,7 @@ jobs:
         env:
           APPLE_DEVELOPMENT_TEAM: ${{ steps.ios_team.outputs.team }}
         run: |
+          set -euo pipefail
           mkdir -p artifacts/ios
           xcodebuild build \
             -workspace src-tauri/gen/apple/app.xcodeproj/project.xcworkspace \
@@ -73,26 +74,33 @@ jobs:
 
       - name: Package IPA
         run: |
+          set -euo pipefail
           mkdir -p artifacts/ios/Payload
-          APP_PATH="$(find src-tauri/gen/apple/build/ci-derived/Build/Products/release-iphoneos -maxdepth 1 -type d -name '*.app' | head -n1)"
-          if [ -z "$APP_PATH" ]; then
-            echo "No .app found under release-iphoneos"
+          PRODUCTS_DIR="src-tauri/gen/apple/build/ci-derived/Build/Products"
+          if [ ! -d "$PRODUCTS_DIR" ]; then
+            echo "Products directory not found: $PRODUCTS_DIR"
             exit 1
           fi
+          echo "Discovered .app bundles under $PRODUCTS_DIR:"
+          find "$PRODUCTS_DIR" -maxdepth 3 -type d -name '*.app' -print || true
+
+          APP_PATH="$(find "$PRODUCTS_DIR" -maxdepth 3 -type d -name '*.app' \( -path '*/Release-iphoneos/*' -o -path '*/release-iphoneos/*' \) | head -n1)"
+          if [ -z "$APP_PATH" ]; then
+            APP_PATH="$(find "$PRODUCTS_DIR" -maxdepth 3 -type d -name '*.app' | head -n1)"
+          fi
+          if [ -z "$APP_PATH" ]; then
+            echo "No .app found in derived products."
+            exit 1
+          fi
+
           PAYLOAD_APP="artifacts/ios/Payload/$(basename "$APP_PATH")"
           ditto "$APP_PATH" "$PAYLOAD_APP"
-          EXEC_NAME="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$PAYLOAD_APP/Info.plist" 2>/dev/null || true)"
-          if [ -n "${EXEC_NAME}" ] && [ "${EXEC_NAME}" != "Kandian" ] && [ -f "$PAYLOAD_APP/$EXEC_NAME" ]; then
-            mv "$PAYLOAD_APP/$EXEC_NAME" "$PAYLOAD_APP/Kandian"
+
+          if [ ! -f "$PAYLOAD_APP/Info.plist" ]; then
+            echo "Invalid app bundle: missing Info.plist in $PAYLOAD_APP"
+            exit 1
           fi
-          /usr/libexec/PlistBuddy -c "Set :CFBundleExecutable Kandian" "$PAYLOAD_APP/Info.plist" 2>/dev/null \
-            || /usr/libexec/PlistBuddy -c "Add :CFBundleExecutable string Kandian" "$PAYLOAD_APP/Info.plist"
-          /usr/libexec/PlistBuddy -c "Set :CFBundleName Kandian" "$PAYLOAD_APP/Info.plist" 2>/dev/null \
-            || /usr/libexec/PlistBuddy -c "Add :CFBundleName string Kandian" "$PAYLOAD_APP/Info.plist"
-          if [ "$(basename "$PAYLOAD_APP")" != "Kandian.app" ]; then
-            mv "$PAYLOAD_APP" "artifacts/ios/Payload/Kandian.app"
-            PAYLOAD_APP="artifacts/ios/Payload/Kandian.app"
-          fi
+
           rm -rf "$PAYLOAD_APP/_CodeSignature"
           rm -f "$PAYLOAD_APP/embedded.mobileprovision"
           while IFS= read -r f; do
@@ -112,6 +120,7 @@ jobs:
           shasum -a 256 artifacts/ios/Kandian-iOS-unsigned.ipa > artifacts/ios/Kandian-iOS-unsigned.ipa.sha256
 
       - name: Upload iOS artifacts
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: ios-ipa
@@ -164,6 +173,7 @@ jobs:
 
       - name: Build Android packages
         run: |
+          set -euo pipefail
           mkdir -p artifacts/android
           npm run tauri:android:build 2>&1 | tee artifacts/android/build-android.log
 
@@ -188,6 +198,7 @@ jobs:
 
   build-desktop:
     name: build-desktop
+    needs: [build-ios, build-android]
     runs-on: macos-15
     steps:
       - name: Checkout
@@ -207,6 +218,7 @@ jobs:
 
       - name: Build desktop bundle
         run: |
+          set -euo pipefail
           mkdir -p artifacts/desktop
           npm run tauri:build -- --bundles app 2>&1 | tee artifacts/desktop/build-desktop.log
 
