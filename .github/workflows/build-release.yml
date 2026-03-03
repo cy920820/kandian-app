@@ -34,30 +34,45 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Resolve iOS Team ID
-        id: ios_team
-        run: |
-          TEAM="$(node -e 'const fs=require("fs");try{const c=JSON.parse(fs.readFileSync("src-tauri/tauri.conf.json","utf8"));process.stdout.write((c?.bundle?.iOS?.developmentTeam||"").trim())}catch{process.stdout.write("")}')"
-          if [ -z "$TEAM" ]; then TEAM="SIMULATR00"; fi
-          echo "team=$TEAM" >> "$GITHUB_OUTPUT"
-          echo "Using Team ID: $TEAM"
-
       - name: Ensure iOS project initialized
         run: |
           if [ ! -d "src-tauri/gen/apple" ]; then
             npm run tauri:ios:init
           fi
 
-      - name: Disable Xcode user script sandbox
+      - name: Build web assets
+        run: npm run build:web
+
+      - name: Prepare iOS native inputs
         run: |
+          set -euo pipefail
+          mkdir -p src-tauri/gen/apple/assets
+          rm -rf src-tauri/gen/apple/assets/*
+          cp -R dist/. src-tauri/gen/apple/assets/
+
+          cargo build \
+            --manifest-path src-tauri/Cargo.toml \
+            --target aarch64-apple-ios \
+            --release
+
+          RUST_LIB="src-tauri/target/aarch64-apple-ios/release/libapp_lib.a"
+          if [ ! -f "$RUST_LIB" ]; then
+            echo "Rust static library not found: $RUST_LIB"
+            ls -la src-tauri/target/aarch64-apple-ios/release || true
+            exit 1
+          fi
+
+          mkdir -p src-tauri/gen/apple/Externals/arm64/release src-tauri/gen/apple/Externals/x86_64/release
+          cp "$RUST_LIB" src-tauri/gen/apple/Externals/arm64/release/libapp.a
+          cp "$RUST_LIB" src-tauri/gen/apple/Externals/x86_64/release/libapp.a
+
           PBXPROJ="src-tauri/gen/apple/app.xcodeproj/project.pbxproj"
           if [ -f "$PBXPROJ" ]; then
             perl -0pi -e 's/ENABLE_USER_SCRIPT_SANDBOXING = YES;/ENABLE_USER_SCRIPT_SANDBOXING = NO;/g' "$PBXPROJ"
+            perl -0pi -e 's#shellScript = "npm run -- tauri ios xcode-script.*?";#shellScript = "echo \\"Skip tauri ios xcode-script in CI\\"";#s' "$PBXPROJ"
           fi
 
       - name: Build unsigned iOS app
-        env:
-          APPLE_DEVELOPMENT_TEAM: ${{ steps.ios_team.outputs.team }}
         run: |
           set -euo pipefail
           mkdir -p artifacts/ios
